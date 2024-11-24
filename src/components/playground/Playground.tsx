@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import { LoadingSVG } from "@/components/button/LoadingSVG";
-import { ChatMessageType } from "@/components/chat/ChatTile";
-import { ColorPicker } from "@/components/colorPicker/ColorPicker";
-import { AudioInputTile } from "@/components/config/AudioInputTile";
-import { ConfigurationPanelItem } from "@/components/config/ConfigurationPanelItem";
-import { NameValueRow } from "@/components/config/NameValueRow";
-import { PlaygroundHeader } from "@/components/playground/PlaygroundHeader";
+import { LoadingSVG } from '@/components/button/LoadingSVG';
+import { ChatMessageType } from '@/components/chat/ChatTile';
+import { ColorPicker } from '@/components/colorPicker/ColorPicker';
+import { AudioInputTile } from '@/components/config/AudioInputTile';
+import { ConfigurationPanelItem } from '@/components/config/ConfigurationPanelItem';
+import { NameValueRow } from '@/components/config/NameValueRow';
+import { PlaygroundHeader } from '@/components/playground/PlaygroundHeader';
 import {
   PlaygroundTab,
   PlaygroundTabbedTile,
   PlaygroundTile,
-} from "@/components/playground/PlaygroundTile";
-import { useConfig } from "@/hooks/useConfig";
-import { TranscriptionTile } from "@/transcriptions/TranscriptionTile";
+} from '@/components/playground/PlaygroundTile';
+import { useConfig } from '@/hooks/useConfig';
+import { TranscriptionTile } from '@/transcriptions/TranscriptionTile';
 import {
   BarVisualizer,
   VideoTrack,
@@ -23,11 +23,17 @@ import {
   useRoomInfo,
   useTracks,
   useVoiceAssistant,
-} from "@livekit/components-react";
-import { ConnectionState, LocalParticipant, Track } from "livekit-client";
-import { QRCodeSVG } from "qrcode.react";
-import { ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import tailwindTheme from "../../lib/tailwindTheme.preval";
+} from '@livekit/components-react';
+import {
+  ConnectionState,
+  LocalParticipant,
+  Track,
+  RpcError,
+  RpcInvocationData,
+} from 'livekit-client';
+import { QRCodeSVG } from 'qrcode.react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import tailwindTheme from '../../lib/tailwindTheme.preval';
 
 export interface PlaygroundMeta {
   name: string;
@@ -64,6 +70,33 @@ export default function Playground({
     }
   }, [config, localParticipant, roomState]);
 
+  useEffect(() => {
+    localParticipant.registerRpcMethod(
+      'getWeather',
+      async (data: RpcInvocationData) => {
+        try {
+          let params = JSON.parse(data.payload);
+          const position: GeolocationPosition = await new Promise(
+            (resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: params.highAccuracy ?? false,
+                timeout: data.responseTimeout,
+              });
+            }
+          );
+
+          console.log('Got position', position);
+          return JSON.stringify({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+        } catch (error) {
+          throw new RpcError(1, 'Could not retrieve user location');
+        }
+      }
+    );
+  }, [localParticipant]);
+
   const agentVideoTrack = tracks.find(
     (trackRef) =>
       trackRef.publication.kind === Track.Kind.Video &&
@@ -82,18 +115,18 @@ export default function Playground({
 
   const onDataReceived = useCallback(
     (msg: any) => {
-      if (msg.topic === "transcription") {
+      if (msg.topic === 'transcription') {
         const decoded = JSON.parse(
-          new TextDecoder("utf-8").decode(msg.payload)
+          new TextDecoder('utf-8').decode(msg.payload)
         );
         let timestamp = new Date().getTime();
-        if ("timestamp" in decoded && decoded.timestamp > 0) {
+        if ('timestamp' in decoded && decoded.timestamp > 0) {
           timestamp = decoded.timestamp;
         }
         setTranscripts([
           ...transcripts,
           {
-            name: "You",
+            name: 'You',
             message: decoded.text,
             timestamp: timestamp,
             isSelf: true,
@@ -107,16 +140,16 @@ export default function Playground({
   useDataChannel(onDataReceived);
 
   const videoTileContent = useMemo(() => {
-    const videoFitClassName = `object-${config.video_fit || "cover"}`;
+    const videoFitClassName = `object-${config.video_fit || 'cover'}`;
 
     const disconnectedContent = (
-      <div className="flex items-center justify-center text-gray-700 text-center w-full h-full">
+      <div className='flex items-center justify-center text-gray-700 text-center w-full h-full'>
         No video track. Connect to get started.
       </div>
     );
 
     const loadingContent = (
-      <div className="flex flex-col items-center justify-center gap-2 text-gray-700 text-center h-full w-full">
+      <div className='flex flex-col items-center justify-center gap-2 text-gray-700 text-center h-full w-full'>
         <LoadingSVG />
         Waiting for video track
       </div>
@@ -139,7 +172,7 @@ export default function Playground({
     }
 
     return (
-      <div className="flex flex-col w-full grow text-gray-950 bg-black rounded-sm border border-gray-800 relative">
+      <div className='flex flex-col w-full grow text-gray-950 bg-black rounded-sm border border-gray-800 relative'>
         {content}
       </div>
     );
@@ -147,25 +180,25 @@ export default function Playground({
 
   useEffect(() => {
     document.body.style.setProperty(
-      "--lk-theme-color",
+      '--lk-theme-color',
       // @ts-ignore
-      tailwindTheme.colors[config.settings.theme_color]["500"]
+      tailwindTheme.colors[config.settings.theme_color]['500']
     );
     document.body.style.setProperty(
-      "--lk-drop-shadow",
+      '--lk-drop-shadow',
       `var(--lk-theme-color) 0px 0px 18px`
     );
   }, [config.settings.theme_color]);
 
   const audioTileContent = useMemo(() => {
     const disconnectedContent = (
-      <div className="flex flex-col items-center justify-center gap-2 text-gray-700 text-center w-full">
+      <div className='flex flex-col items-center justify-center gap-2 text-gray-700 text-center w-full'>
         No audio track. Connect to get started.
       </div>
     );
 
     const waitingContent = (
-      <div className="flex flex-col items-center gap-2 text-gray-700 text-center w-full">
+      <div className='flex flex-col items-center gap-2 text-gray-700 text-center w-full'>
         <LoadingSVG />
         Waiting for audio track
       </div>
@@ -193,12 +226,7 @@ export default function Playground({
     }
 
     return visualizerContent;
-  }, [
-    voiceAssistant.audioTrack,
-    config.settings.theme_color,
-    roomState,
-    voiceAssistant.state,
-  ]);
+  }, [voiceAssistant.audioTrack, roomState, voiceAssistant.state]);
 
   const chatTileContent = useMemo(() => {
     if (voiceAssistant.audioTrack) {
@@ -214,32 +242,32 @@ export default function Playground({
 
   const settingsTileContent = useMemo(() => {
     return (
-      <div className="flex flex-col gap-4 h-full w-full items-start overflow-y-auto">
+      <div className='flex flex-col gap-4 h-full w-full items-start overflow-y-auto'>
         {config.description && (
-          <ConfigurationPanelItem title="Description">
+          <ConfigurationPanelItem title='Description'>
             {config.description}
           </ConfigurationPanelItem>
         )}
 
-        <ConfigurationPanelItem title="Settings">
+        <ConfigurationPanelItem title='Settings'>
           {localParticipant && (
-            <div className="flex flex-col gap-2">
+            <div className='flex flex-col gap-2'>
               <NameValueRow
-                name="Room"
+                name='Room'
                 value={name}
                 valueColor={`${config.settings.theme_color}-500`}
               />
               <NameValueRow
-                name="Participant"
+                name='Participant'
                 value={localParticipant.identity}
               />
             </div>
           )}
         </ConfigurationPanelItem>
-        <ConfigurationPanelItem title="Status">
-          <div className="flex flex-col gap-2">
+        <ConfigurationPanelItem title='Status'>
+          <div className='flex flex-col gap-2'>
             <NameValueRow
-              name="Room connected"
+              name='Room connected'
               value={
                 roomState === ConnectionState.Connecting ? (
                   <LoadingSVG diameter={16} strokeWidth={2} />
@@ -250,36 +278,36 @@ export default function Playground({
               valueColor={
                 roomState === ConnectionState.Connected
                   ? `${config.settings.theme_color}-500`
-                  : "gray-500"
+                  : 'gray-500'
               }
             />
             <NameValueRow
-              name="Agent connected"
+              name='Agent connected'
               value={
                 voiceAssistant.agent ? (
-                  "TRUE"
+                  'TRUE'
                 ) : roomState === ConnectionState.Connected ? (
                   <LoadingSVG diameter={12} strokeWidth={2} />
                 ) : (
-                  "FALSE"
+                  'FALSE'
                 )
               }
               valueColor={
                 voiceAssistant.agent
                   ? `${config.settings.theme_color}-500`
-                  : "gray-500"
+                  : 'gray-500'
               }
             />
           </div>
         </ConfigurationPanelItem>
         {localVideoTrack && (
           <ConfigurationPanelItem
-            title="Camera"
-            deviceSelectorKind="videoinput"
+            title='Camera'
+            deviceSelectorKind='videoinput'
           >
-            <div className="relative">
+            <div className='relative'>
               <VideoTrack
-                className="rounded-sm border border-gray-800 opacity-70 w-full"
+                className='rounded-sm border border-gray-800 opacity-70 w-full'
                 trackRef={localVideoTrack}
               />
             </div>
@@ -287,14 +315,14 @@ export default function Playground({
         )}
         {localMicTrack && (
           <ConfigurationPanelItem
-            title="Microphone"
-            deviceSelectorKind="audioinput"
+            title='Microphone'
+            deviceSelectorKind='audioinput'
           >
             <AudioInputTile trackRef={localMicTrack} />
           </ConfigurationPanelItem>
         )}
-        <div className="w-full">
-          <ConfigurationPanelItem title="Color">
+        <div className='w-full'>
+          <ConfigurationPanelItem title='Color'>
             <ColorPicker
               colors={themeColors}
               selectedColor={config.settings.theme_color}
@@ -307,9 +335,9 @@ export default function Playground({
           </ConfigurationPanelItem>
         </div>
         {config.show_qr && (
-          <div className="w-full">
-            <ConfigurationPanelItem title="QR Code">
-              <QRCodeSVG value={window.location.href} width="128" />
+          <div className='w-full'>
+            <ConfigurationPanelItem title='QR Code'>
+              <QRCodeSVG value={window.location.href} width='128' />
             </ConfigurationPanelItem>
           </div>
         )}
@@ -332,11 +360,11 @@ export default function Playground({
   let mobileTabs: PlaygroundTab[] = [];
   if (config.settings.outputs.video) {
     mobileTabs.push({
-      title: "Video",
+      title: 'Video',
       content: (
         <PlaygroundTile
-          className="w-full h-full grow"
-          childrenClassName="justify-center"
+          className='w-full h-full grow'
+          childrenClassName='justify-center'
         >
           {videoTileContent}
         </PlaygroundTile>
@@ -346,11 +374,11 @@ export default function Playground({
 
   if (config.settings.outputs.audio) {
     mobileTabs.push({
-      title: "Audio",
+      title: 'Audio',
       content: (
         <PlaygroundTile
-          className="w-full h-full grow"
-          childrenClassName="justify-center"
+          className='w-full h-full grow'
+          childrenClassName='justify-center'
         >
           {audioTileContent}
         </PlaygroundTile>
@@ -360,19 +388,19 @@ export default function Playground({
 
   if (config.settings.chat) {
     mobileTabs.push({
-      title: "Chat",
+      title: 'Chat',
       content: chatTileContent,
     });
   }
 
   mobileTabs.push({
-    title: "Settings",
+    title: 'Settings',
     content: (
       <PlaygroundTile
         padding={false}
-        backgroundColor="gray-950"
-        className="h-full w-full basis-1/4 items-start overflow-y-auto flex"
-        childrenClassName="h-full grow items-start"
+        backgroundColor='gray-950'
+        className='h-full w-full basis-1/4 items-start overflow-y-auto flex'
+        childrenClassName='h-full grow items-start'
       >
         {settingsTileContent}
       </PlaygroundTile>
@@ -396,9 +424,9 @@ export default function Playground({
         className={`flex gap-4 py-4 grow w-full selection:bg-${config.settings.theme_color}-900`}
         style={{ height: `calc(100% - ${headerHeight}px)` }}
       >
-        <div className="flex flex-col grow basis-1/2 gap-4 h-full lg:hidden">
+        <div className='flex flex-col grow basis-1/2 gap-4 h-full lg:hidden'>
           <PlaygroundTabbedTile
-            className="h-full"
+            className='h-full'
             tabs={mobileTabs}
             initialTab={mobileTabs.length - 1}
           />
@@ -406,24 +434,24 @@ export default function Playground({
         <div
           className={`flex-col grow basis-1/2 gap-4 h-full hidden lg:${
             !config.settings.outputs.audio && !config.settings.outputs.video
-              ? "hidden"
-              : "flex"
+              ? 'hidden'
+              : 'flex'
           }`}
         >
           {config.settings.outputs.video && (
             <PlaygroundTile
-              title="Video"
-              className="w-full h-full grow"
-              childrenClassName="justify-center"
+              title='Video'
+              className='w-full h-full grow'
+              childrenClassName='justify-center'
             >
               {videoTileContent}
             </PlaygroundTile>
           )}
           {config.settings.outputs.audio && (
             <PlaygroundTile
-              title="Audio"
-              className="w-full h-full grow"
-              childrenClassName="justify-center"
+              title='Audio'
+              className='w-full h-full grow'
+              childrenClassName='justify-center'
             >
               {audioTileContent}
             </PlaygroundTile>
@@ -432,17 +460,17 @@ export default function Playground({
 
         {config.settings.chat && (
           <PlaygroundTile
-            title="Chat"
-            className="h-full grow basis-1/4 hidden lg:flex"
+            title='Chat'
+            className='h-full grow basis-1/4 hidden lg:flex'
           >
             {chatTileContent}
           </PlaygroundTile>
         )}
         <PlaygroundTile
           padding={false}
-          backgroundColor="gray-950"
-          className="h-full w-full basis-1/4 items-start overflow-y-auto hidden max-w-[480px] lg:flex"
-          childrenClassName="h-full grow items-start"
+          backgroundColor='gray-950'
+          className='h-full w-full basis-1/4 items-start overflow-y-auto hidden max-w-[480px] lg:flex'
+          childrenClassName='h-full grow items-start'
         >
           {settingsTileContent}
         </PlaygroundTile>
